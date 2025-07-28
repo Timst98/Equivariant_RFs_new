@@ -1,0 +1,11 @@
+slurm-*.out
+*.log
+*.err
+*.out
+
+
+.RData
+
+.Rhistory
+
+.DS_Store
