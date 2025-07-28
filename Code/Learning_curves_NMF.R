@@ -12,17 +12,17 @@ Packages=c('doParallel','foreach')
 Export=c("Packages","cov_mat","cross_cov_mat","grad_standard","fund_cov_mat","cross_fund_cov_mat","grad_fund","Xtr","Ytr","cross_fund_cov_mat","jit","inv")
 Batchsize=50
 
-data_set_size=4500
-test_size=500
+data_set_size=20000
+test_size=1000
 train_ind=sample(data_set_size,1000)
 
 lr=0.001;max_iter=100
 jit=1e-8
 
 
-ntrain=4;x_values=seq(1500,4000,l=ntrain)
+ntrain=10;x_values=seq(10,1000,l=ntrain)
 
-train_size_stepsize=c(500,rep(1000,3))
+train_size_stepsize=rep(100,ntrain)
 
 lr=0.001;max_iter=1000
 jit=1e-8
@@ -381,116 +381,106 @@ grad_fund=function(xtr,ytr,l,sigma){
   inv_K=inv(K)
   
   
-  for(i in 1:(length(as.matrix(x1))/27)){
-    for (j in 1:(length(as.matrix(x2))/27)){
-      x1=xtr[i,]
-      x2=xtr[j,]
-      X1=x1-rep(x1[1:3],9);X2=x2-rep(x2[1:3],9)
-      
-      x_H_bar_1=X1[4:6];x_H_bar_2=X1[7:9]
-      r1=norm(x_H_bar_1)
-      
-      theta1=atan2(x_H_bar_1[1],x_H_bar_1[2])
-      
-      x_H_tilde_1=c(0,sin(theta1)*x_H_bar_1[1]+cos(theta1)*x_H_bar_1[2],x_H_bar_1[3])
-      phi1=-atan2(x_H_tilde_1[3],x_H_tilde_1[2])
-      
-      psi_1=matrix(c(cos(theta1),-sin(theta1),0,sin(theta1),cos(theta1),0,0,0,1),
-                   nrow=3,byrow = 1)
-      psi_2=matrix(c(1,0,0,0,cos(phi1),-sin(phi1),0,sin(phi1),cos(phi1)),
-                   nrow=3,byrow = 1)
-      
-      x_H_tilde_2=psi_2%*%psi_1%*%x_H_bar_2
-      
-      phi2=-atan2(x_H_tilde_2[3],x_H_tilde_2[1])
-      psi_3=matrix(c(cos(phi2),0,-sin(phi2),0,1,0,sin(phi2),0,cos(phi2)),
-                   nrow=3,byrow = 1)
-      X1=X1[-(1:9)]
-      rho=psi_3%*%psi_2%*%psi_1
-      
-      A1=c(r1,(psi_3%*%x_H_tilde_2)[1],(psi_3%*%x_H_tilde_2)[2],
-           foreach(i=1:6,.combine='c')%dopar%{rho%*%(X1[(3*(i-1)+1):(3*i)])})
-      
-      
-      x_H2_bar_1=X2[4:6];x_H2_bar_2=X2[7:9]
-      r1_2=norm(x_H2_bar_1)
-      
-      theta1=atan2(x_H2_bar_1[1],x_H2_bar_1[2])
-      
-      x_H2_tilde_1=c(0,sin(theta1)*x_H2_bar_1[1]+cos(theta1)*x_H2_bar_1[2],x_H2_bar_1[3])
-      phi1=-atan2(x_H2_tilde_1[3],x_H2_tilde_1[2])
-      
-      psi_1_2=matrix(c(cos(theta1),-sin(theta1),0,sin(theta1),cos(theta1),0,0,0,1),
-                     nrow=3,byrow = 1)
-      psi_2_2=matrix(c(1,0,0,0,cos(phi1),-sin(phi1),0,sin(phi1),cos(phi1)),
-                     nrow=3,byrow = 1)
-      
-      x_H2_tilde_2=psi_2_2%*%psi_1_2%*%x_H2_bar_2
-      
-      phi2=-atan2(x_H2_tilde_2[3],x_H2_tilde_2[1])
-      psi_3_2=matrix(c(cos(phi2),0,-sin(phi2),0,1,0,sin(phi2),0,cos(phi2)),
-                     nrow=3,byrow = 1)
-      X2=X2[-(1:9)]
-      rho2=psi_3_2%*%psi_2_2%*%psi_1_2
-      
-      A2=c(r1_2,(psi_3_2%*%x_H2_tilde_2)[1],(psi_3_2%*%x_H2_tilde_2)[2],
-           foreach(i=1:6,.combine='c')%dopar%{rho2%*%(X2[(3*(i-1)+1):(3*i)])})
-      
-      #A2=c(r1_2,(psi_3_2%*%x_H2_tilde_2)[1],(psi_3_2%*%x_H2_tilde_2)[2])
-      
-      sigma^2*exp(-(norm(A1-A2))^2/(2*l^2))*t(rho)%*%rho2
-      
-      
-      
-      
-      cov1=sigma^2*exp(-(norm(A1-A2))^2/(2*l^2))/(l^3)*(norm(A1-A2))^2*t(rho)%*%rho2
-      
-      cov2=2*sigma*exp(-(norm(A1-A2))^2/(2*l^2))*t(rho)%*%rho2
-      
-      x1=x2=xtr
-      
-      K_l[i, j] = cov1[1,1]
-      K_l[ifelse(length(as.matrix(x1))==27,1,nrow(x1)) + i,
-          ifelse(length(as.matrix(x2))==27,1,nrow(x2)) + j] = cov1[2,2]
-      
-      K_l[2*ifelse(length(as.matrix(x1))==27,1,nrow(x1)) + i,
-          2*ifelse(length(as.matrix(x2))==27,1,nrow(x2)) + j] = cov1[3,3]
-      
-      K_l[ifelse(length(as.matrix(x1))==27,1,nrow(x1)) + i, j] = cov1[2,1]
-      K_l[2*ifelse(length(as.matrix(x1))==27,1,nrow(x1)) + i, j] = cov1[3,1]
-      
-      K_l[i,ifelse(length(as.matrix(x2))==27,1,nrow(x2)) + j] = cov1[1,2]
-      K_l[i,2*ifelse(length(as.matrix(x2))==27,1,nrow(x2)) + j] = cov1[1,3]
-      
-      K_l[2*ifelse(length(as.matrix(x1))==27,1,nrow(x1)) + i,
-          ifelse(length(as.matrix(x2))==27,1,nrow(x2)) + j] = cov1[3,2]
-      
-      K_l[ifelse(length(as.matrix(x1))==27,1,nrow(x1)) + i,
-          2*ifelse(length(as.matrix(x2))==27,1,nrow(x2)) + j] = cov1[2,3]
-      
-      
-      
-      K_sigma[i, j] = cov2[1,1]
-      K_sigma[ifelse(length(as.matrix(x1))==27,1,nrow(x1)) + i,
-              ifelse(length(as.matrix(x2))==27,1,nrow(x2)) + j] = cov2[2,2]
-      
-      K_sigma[2*ifelse(length(as.matrix(x1))==27,1,nrow(x1)) + i,
-              2*ifelse(length(as.matrix(x2))==27,1,nrow(x2)) + j] = cov2[3,3]
-      
-      K_sigma[ifelse(length(as.matrix(x1))==27,1,nrow(x1)) + i, j] = cov2[2,1]
-      K_sigma[2*ifelse(length(as.matrix(x1))==27,1,nrow(x1)) + i, j] = cov2[3,1]
-      
-      K_sigma[i,ifelse(length(as.matrix(x2))==27,1,nrow(x2)) + j] = cov2[1,2]
-      K_sigma[i,2*ifelse(length(as.matrix(x2))==27,1,nrow(x2)) + j] = cov2[1,3]
-      
-      K_sigma[2*ifelse(length(as.matrix(x1))==27,1,nrow(x1)) + i,
-              ifelse(length(as.matrix(x2))==27,1,nrow(x2)) + j] = cov2[3,2]
-      
-      K_sigma[ifelse(length(as.matrix(x1))==27,1,nrow(x1)) + i,
-              2*ifelse(length(as.matrix(x2))==27,1,nrow(x2)) + j] = cov2[2,3]
-      
-    }
-  }
+  
+results <- foreach(idx = 1:(N1 * N2)) %dopar% {
+  i <- ((idx - 1) %% N1) + 1
+  j <- ((idx - 1) %/% N1) + 1
+
+  x1 <- xtr[i,]
+  x2 <- xtr[j,]
+  X1 <- x1 - rep(x1[1:3], 9)
+  X2 <- x2 - rep(x2[1:3], 9)
+
+  # === First rotation chain ===
+  x_H_bar_1 <- X1[4:6]; x_H_bar_2 <- X1[7:9]
+  r1 <- norm(x_H_bar_1)
+  theta1 <- atan2(x_H_bar_1[1], x_H_bar_1[2])
+  x_H_tilde_1 <- c(0, sin(theta1)*x_H_bar_1[1] + cos(theta1)*x_H_bar_1[2], x_H_bar_1[3])
+  phi1 <- -atan2(x_H_tilde_1[3], x_H_tilde_1[2])
+  
+  psi_1 <- matrix(c(cos(theta1), -sin(theta1), 0,
+                    sin(theta1), cos(theta1), 0,
+                    0, 0, 1), nrow=3, byrow=TRUE)
+  psi_2 <- matrix(c(1, 0, 0,
+                    0, cos(phi1), -sin(phi1),
+                    0, sin(phi1), cos(phi1)), nrow=3, byrow=TRUE)
+  
+  x_H_tilde_2 <- psi_2 %*% psi_1 %*% x_H_bar_2
+  phi2 <- -atan2(x_H_tilde_2[3], x_H_tilde_2[1])
+  psi_3 <- matrix(c(cos(phi2), 0, -sin(phi2),
+                    0, 1, 0,
+                    sin(phi2), 0, cos(phi2)), nrow=3, byrow=TRUE)
+  
+  X1 <- X1[-(1:9)]
+  rho <- psi_3 %*% psi_2 %*% psi_1
+  A1 <- c(r1, (psi_3 %*% x_H_tilde_2)[1], (psi_3 %*% x_H_tilde_2)[2],
+          unlist(lapply(1:6, function(k) rho %*% X1[(3*(k-1)+1):(3*k)])))
+
+  # === Second rotation chain ===
+  x_H2_bar_1 <- X2[4:6]; x_H2_bar_2 <- X2[7:9]
+  r1_2 <- norm(x_H2_bar_1)
+  theta1 <- atan2(x_H2_bar_1[1], x_H2_bar_1[2])
+  x_H2_tilde_1 <- c(0, sin(theta1)*x_H2_bar_1[1] + cos(theta1)*x_H2_bar_1[2], x_H2_bar_1[3])
+  phi1 <- -atan2(x_H2_tilde_1[3], x_H2_tilde_1[2])
+  
+  psi_1_2 <- matrix(c(cos(theta1), -sin(theta1), 0,
+                      sin(theta1), cos(theta1), 0,
+                      0, 0, 1), nrow=3, byrow=TRUE)
+  psi_2_2 <- matrix(c(1, 0, 0,
+                      0, cos(phi1), -sin(phi1),
+                      0, sin(phi1), cos(phi1)), nrow=3, byrow=TRUE)
+  
+  x_H2_tilde_2 <- psi_2_2 %*% psi_1_2 %*% x_H2_bar_2
+  phi2 <- -atan2(x_H2_tilde_2[3], x_H2_tilde_2[1])
+  psi_3_2 <- matrix(c(cos(phi2), 0, -sin(phi2),
+                      0, 1, 0,
+                      sin(phi2), 0, cos(phi2)), nrow=3, byrow=TRUE)
+  
+  X2 <- X2[-(1:9)]
+  rho2 <- psi_3_2 %*% psi_2_2 %*% psi_1_2
+  A2 <- c(r1_2, (psi_3_2 %*% x_H2_tilde_2)[1], (psi_3_2 %*% x_H2_tilde_2)[2],
+          unlist(lapply(1:6, function(k) rho2 %*% X2[(3*(k-1)+1):(3*k)])))
+
+  # === Covariances ===
+  cov1 <- sigma^2 * exp(-(norm(A1 - A2))^2 / (2 * l^2)) / (l^3) * (norm(A1 - A2))^2 * t(rho) %*% rho2
+  cov2 <- 2 * sigma * exp(-(norm(A1 - A2))^2 / (2 * l^2)) * t(rho) %*% rho2
+
+  list(i = i, j = j, cov1 = cov1, cov2 = cov2)
+}
+
+K_l <- matrix(0, 3*N1, 3*N2)
+K_sigma <- matrix(0, 3*N1, 3*N2)
+
+for (res in results) {
+  i <- res$i
+  j <- res$j
+  cov1 <- res$cov1
+  cov2 <- res$cov2
+
+  offset1 <- ifelse(N1 == 1, 0, N1)
+  offset2 <- ifelse(N2 == 1, 0, N2)
+
+  K_l[i, j] <- cov1[1,1]
+  K_l[offset1 + i, offset2 + j] <- cov1[2,2]
+  K_l[2*offset1 + i, 2*offset2 + j] <- cov1[3,3]
+  K_l[offset1 + i, j] <- cov1[2,1]
+  K_l[2*offset1 + i, j] <- cov1[3,1]
+  K_l[i, offset2 + j] <- cov1[1,2]
+  K_l[i, 2*offset2 + j] <- cov1[1,3]
+  K_l[2*offset1 + i, offset2 + j] <- cov1[3,2]
+  K_l[offset1 + i, 2*offset2 + j] <- cov1[2,3]
+
+  K_sigma[i, j] <- cov2[1,1]
+  K_sigma[offset1 + i, offset2 + j] <- cov2[2,2]
+  K_sigma[2*offset1 + i, 2*offset2 + j] <- cov2[3,3]
+  K_sigma[offset1 + i, j] <- cov2[2,1]
+  K_sigma[2*offset1 + i, j] <- cov2[3,1]
+  K_sigma[i, offset2 + j] <- cov2[1,2]
+  K_sigma[i, 2*offset2 + j] <- cov2[1,3]
+  K_sigma[2*offset1 + i, offset2 + j] <- cov2[3,2]
+  K_sigma[offset1 + i, 2*offset2 + j] <- cov2[2,3]
+}
+  
   
   grad=0.5*c(-t(c(ytr[,1],ytr[,2],ytr[,3]))%*%inv_K%*%K_l%*%inv_K%*%c(
     ytr[,1],ytr[,2],ytr[,3])+Trace(inv_K%*%K_l),
@@ -743,5 +733,5 @@ opt_par=Adam(function(x) {
 }
 stopCluster(cl)
 res=list(RMSES,LogS,Opt_par)
-save(list = "res", file = paste0("learning_curves_NMF_very_long_", id, ".rda"))
+save(list = "res", file = paste0("Results/learning_curves_NMF", id, ".rda"))
 
