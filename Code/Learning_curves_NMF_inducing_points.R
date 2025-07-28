@@ -5,7 +5,7 @@ library(doParallel)
 library(foreach)
 library(progress)
 #notcluster=is.na(id)
-num_cores=100
+num_cores=120
 notcluster=1
 
 Packages=c('doParallel','foreach')
