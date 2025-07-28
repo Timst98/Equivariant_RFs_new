@@ -30,7 +30,7 @@ lr=0.001;max_iter=100
 jit=1e-8
 
 
-load('data_NMF.rda')
+load('Data/data_NMF.rda')
 X=as.matrix(unname(data[[1]]))
 Y=as.matrix(unname(data[[2]]))
 # Display the resulting matrix
