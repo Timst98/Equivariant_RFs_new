@@ -1,0 +1,1 @@
+#! /bin/bash-l#SBATCH --job-name="Initial_rmses"#SBATCH --time=24:00:00#SBATCH --mem 1G#SBATCH --array=1-100module load RRscript rmses_initial_adam2.R 
