@@ -9,8 +9,9 @@ num_cores=120
 notcluster=1
 
 Packages=c('doParallel','foreach')
-Export=c("Packages","cov_mat","cross_cov_mat","grad_standard","fund_cov_mat","cross_fund_cov_mat","grad_fund","Xtr","Ytr","cross_fund_cov_mat","jit","inv")
-
+Export=c("Packages","cov_mat","cross_cov_mat","grad_standard","fund_cov_mat",
+         "cross_fund_cov_mat","grad_fund","Xtr","Ytr","cross_fund_cov_mat","jit","inv")
+Xtr=Ytr=c()
 data_set_size=10000
 test_set_size=1000
 
