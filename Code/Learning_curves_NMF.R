@@ -22,7 +22,7 @@ if(max_iter==1000){
 }
 
 # Define file path
-file_path <- "database.xyz"
+file_path <- "Data/database.xyz"
 
 # Read the file as lines
 lines <- readLines(file_path) # MUST be multiple of 42
