@@ -524,7 +524,7 @@ grad_fund=function(xtr,ytr,l,sigma){
 grad_standard=function(xtr,ytr,l,sigma){
   Trace=function(x){sum(diag(x))}
   x1=x2=xtr
-  ntr=ifelse(is.null(dim(xtr)),1,ntr)
+  ntr=ifelse(is.null(dim(xtr)),1,nrow(xtr))
   
   norm=function(x){sum(x^2)^.5}
   
