@@ -695,8 +695,8 @@ for( i in 1:n_ind){
         min(
           sapply(1:length(ind_points),
                  function(k){
-                   base::norm(-2*cov_mat(X[k],x,opt_par[1],opt_par[2])+
-                          cov_mat(X[k],X[k],opt_par[1],opt_par[2])+
+                   base::norm(-2*cov_mat(X[k,],x,opt_par[1],opt_par[2])+
+                          cov_mat(X[k,],X[k,],opt_par[1],opt_par[2])+
                               cov_mat(x,x,opt_par[1],opt_par[2]),type='F')}
         ))
       }
@@ -724,8 +724,8 @@ for( i in 1:n_ind){
       min(
         sapply(1:length(ind_points),
                function(k){
-                 base::norm(-2*fund_cov_mat(X[k],x,opt_par_fund[1],opt_par_fund[2])+
-                              fund_cov_mat(X[k],X[k],opt_par_fund[1],opt_par_fund[2])+
+                 base::norm(-2*fund_cov_mat(X[k,],x,opt_par_fund[1],opt_par_fund[2])+
+                              fund_cov_mat(X[k,],X[k,],opt_par_fund[1],opt_par_fund[2])+
                               fund_cov_mat(x,x,opt_par_fund[1],opt_par_fund[2]),type='F')}
         ))
     }
