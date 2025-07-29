@@ -808,7 +808,7 @@ for( i in 1:n_ind){
       grad_fund(X[ind_points_fund,], Y[ind_points_fund,], x[1], x[2])
     },opt_par_fund,lr=lr,max_iter = max_iter)
     
-    cat('Opt par: ', opt_par_fund,'\n')
+    cat('Opt par fund: ', opt_par_fund,'\n')
 
     distances = outer(ind_points_fund, ind_points_fund,
                   FUN = Vectorize(function(x, y) {
