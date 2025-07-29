@@ -715,11 +715,13 @@ for( i in 1:n_ind){
   
   while(length(ind_points)<=n_ind_points[i]){
     
-    for(kk in 1:nrow(X)){
-      if(!(kk %in% ind_points)&&min(sapply(ind_points,function(k){
-        Kxy=cov_mat(X[k, ], X[kk, ], opt_par_fund[1], opt_par_fund[2])
-                    Kxx=cov_mat(X[k, ], X[k, ], opt_par_fund[1], opt_par_fund[2])
-                    Kyy=cov_mat(X[kk, ], X[kk, ], opt_par_fund[1], opt_par_fund[2])
+     for(kk in 1:nrow(X)){
+      Similarities=numeric(nrow(X))
+      if(!(kk %in% ind_points)){
+         Similarities[kk]=min(sapply(ind_points,function(k){
+        Kxy=cov_mat(X[k, ], X[kk, ], opt_par[1], opt_par[2])
+                    Kxx=cov_mat(X[k, ], X[k, ], opt_par[1], opt_par[2])
+                    Kyy=cov_mat(X[kk, ], X[kk, ], opt_par[1], opt_par[2])
                     
                     base::norm(
                       -2 * Kxy/sqrt(base::norm(Kxx,type='F')*base::norm(Kyy,type='F')) +
@@ -727,15 +729,18 @@ for( i in 1:n_ind){
                         Kyy/base::norm(Kyy,type='F'),
                       type = 'F'
                     )
-      }))>tau){
+      }))
+        if(Similarities[kk]>tau){
         ind_points=c(ind_points,kk)
-
+        print(kk)
         break
-      }  
-     if(kk== nrow(X)){
+        }
+      }
+      if(kk== nrow(X)){
          print('No new points found')
          quant=.9*quant
-      }   
+         ind_points=c(ind_points,which.max(Similarities))
+      }      
     }
     
     opt_par=Adam(function(x) {
@@ -769,7 +774,9 @@ for( i in 1:n_ind){
   while(length(ind_points_fund)<=n_ind_points[i]){
     
     for(kk in 1:nrow(X)){
-      if(!(kk %in% ind_points_fund)&&min(sapply(ind_points_fund,function(k){
+      Similarities=numeric(nrow(X))
+      if(!(kk %in% ind_points_fund)){
+         Similarities[kk]=min(sapply(ind_points_fund,function(k){
         Kxy=fund_cov_mat(X[k, ], X[kk, ], opt_par_fund[1], opt_par_fund[2])
                     Kxx=fund_cov_mat(X[k, ], X[k, ], opt_par_fund[1], opt_par_fund[2])
                     Kyy=fund_cov_mat(X[kk, ], X[kk, ], opt_par_fund[1], opt_par_fund[2])
@@ -780,14 +787,17 @@ for( i in 1:n_ind){
                         Kyy/base::norm(Kyy,type='F'),
                       type = 'F'
                     )
-      }))>tau_fund){
+      }))
+        if(Similarities[kk]>tau_fund){
         ind_points_fund=c(ind_points_fund,kk)
         print(kk)
         break
+        }
       }
       if(kk== nrow(X)){
          print('No new points found')
          quant_fund=.9*quant_fund
+         ind_points_fund=c(ind_points_fund,which.max(Similarities))
       }      
     }
     
