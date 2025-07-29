@@ -7,6 +7,7 @@ library(progress)
 #notcluster=is.na(id)
 num_cores=120
 notcluster=1
+quant=quant_fund=.9
 
 Packages=c('doParallel','foreach')
 Export=c("Packages","cov_mat","cross_cov_mat","grad_standard","fund_cov_mat",
@@ -678,7 +679,7 @@ distances = outer(ind_points, ind_points,
                       type = 'F'
                     )
                   }))
-tau=quantile(distances,.9)
+tau=quantile(distances,quant)
                           
 cat('Tau : ', tau,'\n')
 
@@ -702,7 +703,7 @@ distances = outer(ind_points_fund, ind_points_fund,
                       type = 'F'
                     )
                   }))
-tau_fund=quantile(distances,.9)
+tau_fund=quantile(distances,quant_fund)
 
 cat('Opt par fund: ', opt_par_fund,'\n')
 
@@ -731,6 +732,10 @@ for( i in 1:n_ind){
 
         break
       }  
+     if(kk= nrow(X)){
+         print('No new points found')
+         quant=.9*quant
+      }   
     }
     
     opt_par=Adam(function(x) {
@@ -754,7 +759,7 @@ for( i in 1:n_ind){
                       type = 'F'
                     )
                   }))
-    tau=quantile(distances,.9)
+    tau=quantile(distances,quant)
 
     cat('Tau : ', tau,'\n')
 
@@ -777,9 +782,13 @@ for( i in 1:n_ind){
                     )
       }))>tau_fund){
         ind_points_fund=c(ind_points_fund,kk)
-
+        print(kk)
         break
-      }  
+      }
+      if(kk= nrow(X)){
+         print('No new points found')
+         quant_fund=.9*quant_fund
+      }      
     }
     
     opt_par_fund=Adam(function(x) {
@@ -789,7 +798,7 @@ for( i in 1:n_ind){
       grad_fund(X[ind_points_fund,], Y[ind_points_fund,], x[1], x[2])
     },opt_par_fund,lr=lr,max_iter = max_iter)
     
-    cat('Opt par: ', opt_par,'\n')
+    cat('Opt par: ', opt_par_fund,'\n')
 
     distances = outer(ind_points_fund, ind_points_fund,
                   FUN = Vectorize(function(x, y) {
@@ -804,8 +813,8 @@ for( i in 1:n_ind){
                       type = 'F'
                     )
                   }))
-   tau_fund=quantile(distances,.9)
-  cat('Tau fund: ', tau_fund,'\n')
+   tau_fund=quantile(distances,quant_fund)
+   cat('Tau fund: ', tau_fund,'\n')
 
   }
 
