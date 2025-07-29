@@ -714,8 +714,8 @@ for( i in 1:n_ind){
   
   while(length(ind_points)<=n_ind_points[i]){
     
-    for(kk in (1:nrow(X)[-ind_points])){
-      if(min(sapply(ind_points,function(k){
+    for(kk in 1:nrow(X)){
+      if(!(kk %in% ind_points)&&min(sapply(ind_points,function(k){
         Kxy=cov_mat(X[k, ], X[kk, ], opt_par_fund[1], opt_par_fund[2])
                     Kxx=cov_mat(X[k, ], X[k, ], opt_par_fund[1], opt_par_fund[2])
                     Kyy=cov_mat(X[kk, ], X[kk, ], opt_par_fund[1], opt_par_fund[2])
@@ -763,8 +763,8 @@ for( i in 1:n_ind){
          
   while(length(ind_points_fund)<=n_ind_points[i]){
     
-    for(kk in (1:nrow(X)[-ind_points_fund])){
-      if(min(sapply(ind_points_fund,function(k){
+    for(kk in 1:nrow(X)){
+      if(!(kk %in% ind_points_fund)&&min(sapply(ind_points_fund,function(k){
         Kxy=fund_cov_mat(X[k, ], X[kk, ], opt_par_fund[1], opt_par_fund[2])
                     Kxx=fund_cov_mat(X[k, ], X[k, ], opt_par_fund[1], opt_par_fund[2])
                     Kyy=fund_cov_mat(X[kk, ], X[kk, ], opt_par_fund[1], opt_par_fund[2])
