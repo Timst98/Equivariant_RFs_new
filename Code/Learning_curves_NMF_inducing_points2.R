@@ -732,7 +732,7 @@ for( i in 1:n_ind){
 
         break
       }  
-     if(kk= nrow(X)){
+     if(kk== nrow(X)){
          print('No new points found')
          quant=.9*quant
       }   
@@ -785,7 +785,7 @@ for( i in 1:n_ind){
         print(kk)
         break
       }
-      if(kk= nrow(X)){
+      if(kk== nrow(X)){
          print('No new points found')
          quant_fund=.9*quant_fund
       }      
