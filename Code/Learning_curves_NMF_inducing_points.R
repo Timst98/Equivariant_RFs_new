@@ -661,6 +661,7 @@ opt_par=Adam(function(x) {
   grad_standard(X[ind_points,], Y[ind_points,], x[1], x[2])
 },rep(1,2),lr=lr,max_iter = max_iter)
 
+                          cat('Opt par: ', opt_par,'\n')
 ind_points_fund=sample(data_set_size,1)
 
 opt_par_fund=Adam(function(x) {
@@ -670,6 +671,7 @@ opt_par_fund=Adam(function(x) {
   grad_fund(X[ind_points_fund,], Y[ind_points_fund,], x[1], x[2])
 },rep(1,2),lr=lr,max_iter = max_iter)
 
+ cat('Opt par fund: ', opt_par_fund,'\n')
 
 
 for( i in 1:n_ind){
@@ -710,8 +712,9 @@ for( i in 1:n_ind){
       grad_standard(X[ind_points,], Y[ind_points,], x[1], x[2])
     },opt_par,lr=lr,max_iter = max_iter)
     
-    
+    cat('Opt par: ', opt_par,'\n')
   }
+         
   
   while(length(ind_points_fund)<n_ind_points[i]){
     Similarity=numeric(nrow(X))       
@@ -737,10 +740,13 @@ for( i in 1:n_ind){
     },function(x) {
       grad_fund(X[ind_points,], Y[ind_points,], x[1], x[2])
     },opt_par_fund,lr=lr,max_iter = max_iter)
-    
+
+   cat('Opt par fund: ', opt_par_fund,'\n')
     
   }
-  
+
+  cat('Ind points: ', ind_points,'\n')
+  cat('Ind points fund: ', ind_points_fund,'\n')
   Xtr=X[ind_points,]
   #Xte=X[test_ind,]
   Ytr=Y[ind_points,]
