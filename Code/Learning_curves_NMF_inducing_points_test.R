@@ -1,32 +1,30 @@
-id <- as.integer(Sys.getenv("SLURM_ARRAY_TASK_ID"))
+id <- 1
 library(pracma)
 library(cubature)
 library(doParallel)
 library(foreach)
 library(progress)
 #notcluster=is.na(id)
-num_cores=120
+num_cores=5
 notcluster=1
-quant=quant_fund=.9
 
 Packages=c('doParallel','foreach')
-Export=c("Packages","cov_mat","cross_cov_mat","grad_standard","fund_cov_mat",
-         "cross_fund_cov_mat","grad_fund","Xtr","Ytr","cross_fund_cov_mat","jit","inv")
+Export=c("Packages","cov_mat","cross_cov_mat","grad_standard","fund_cov_mat","cross_fund_cov_mat","grad_fund","Xtr","Ytr","cross_fund_cov_mat","jit","inv")
 Xtr=Ytr=c()
 data_set_size=1000
-test_set_size=1000
+test_set_size=100
 
 
 lr=0.001;max_iter=100
 jit=1e-8
 
-n_ind=10
-n_ind_points=seq(20,100,l=n_ind)
+n_ind=3
+n_ind_points=seq(2,10,l=n_ind)
 
 jit=1e-8
 
 
-load('Data/data_NMF.rda')
+#load('Data/data_NMF.rda')
 X=as.matrix(unname(data[[1]]))
 Y=as.matrix(unname(data[[2]]))
 # Display the resulting matrix
@@ -382,7 +380,7 @@ cross_cov_mat=function(x1,x2,l,sigma){
 
 grad_fund=function(xtr,ytr,l,sigma){
   Trace=function(x){sum(diag(x))}
-    x1=x2=xtr
+  x1=x2=xtr
   norm=function(x){sum(x^2)^.5}
   ntr=ifelse(is.null(dim(xtr)),1,nrow(xtr))
   
@@ -543,7 +541,7 @@ grad_standard=function(xtr,ytr,l,sigma){
   
   for(i in 1:(length(as.matrix(x1))/27)){
     for (j in 1:(length(as.matrix(x2))/27)){
-   
+      
       if(!is.null(dim(x1))){
         x1=x1[i,]
       }
@@ -653,7 +651,7 @@ colnames(LogS)<-c("standard","fundamental")
 cl=makeCluster(num_cores)
 registerDoParallel(cl)
 
-ind_points_fund=ind_points=sample(data_set_size,10)
+ind_points=sample(data_set_size,1)
 
 opt_par=Adam(function(x) {
   log_likelihood_standard(
@@ -662,26 +660,7 @@ opt_par=Adam(function(x) {
   grad_standard(X[ind_points,], Y[ind_points,], x[1], x[2])
 },rep(1,2),lr=lr,max_iter = max_iter)
 
-cat('Opt par: ', opt_par,'\n')
-
-
-                          
-distances = outer(ind_points, ind_points,
-                  FUN = Vectorize(function(x, y) {
-                    Kxy=cov_mat(X[x, ], X[y, ], opt_par[1], opt_par[2])
-                    Kxx=cov_mat(X[x, ], X[x, ], opt_par[1], opt_par[2])
-                    Kyy=cov_mat(X[y, ], X[y, ], opt_par[1], opt_par[2])
-                    
-                    base::norm(
-                      -2 * Kxy/sqrt(base::norm(Kxx,type='F')*base::norm(Kyy,type='F')) +
-                        Kxx/base::norm(Kxx,type='F') +
-                        Kyy/base::norm(Kyy,type='F'),
-                      type = 'F'
-                    )
-                  }))
-tau=quantile(distances,quant)
-                          
-cat('Tau : ', tau,'\n')
+ind_points_fund=sample(data_set_size,1)
 
 opt_par_fund=Adam(function(x) {
   log_likelihood_fund(
@@ -690,58 +669,38 @@ opt_par_fund=Adam(function(x) {
   grad_fund(X[ind_points_fund,], Y[ind_points_fund,], x[1], x[2])
 },rep(1,2),lr=lr,max_iter = max_iter)
 
-distances = outer(ind_points_fund, ind_points_fund,
-                  FUN = Vectorize(function(x, y) {
-                    Kxy=fund_cov_mat(X[x, ], X[y, ], opt_par_fund[1], opt_par_fund[2])
-                    Kxx=fund_cov_mat(X[x, ], X[x, ], opt_par_fund[1], opt_par_fund[2])
-                    Kyy=fund_cov_mat(X[y, ], X[y, ], opt_par_fund[1], opt_par_fund[2])
-                    
-                    base::norm(
-                      -2 * Kxy/sqrt(base::norm(Kxx,type='F')*base::norm(Kyy,type='F')) +
-                        Kxx/base::norm(Kxx,type='F') +
-                        Kyy/base::norm(Kyy,type='F'),
-                      type = 'F'
-                    )
-                  }))
-tau_fund=quantile(distances,quant_fund)
 
-cat('Opt par fund: ', opt_par_fund,'\n')
-
-cat('Tau fund: ', tau_fund,'\n')
-                         
 
 for( i in 1:n_ind){
   Trace=function(Mat){sum(diag(Mat))}
   
-  while(length(ind_points)<=n_ind_points[i]){
+  while(length(ind_points)<n_ind_points[i]){
+    Similarity=numeric(nrow(X))       
+    #COSINE similarity
+    # similarity=apply(X[-ind_points,],1,function(x){
+    #   min(
+    #     sapply(1:length(ind_points),
+    #            function(k){
+    #              norm(cov_mat(X[k],x,opt_par[1],opt_par[2]),type='F')/
+    #                sqrt(norm(cov_mat(X[k],X[k],opt_par[1],opt_par[2],type='F')*
+    #                            norm(cov_mat(x,x,opt_par[1],opt_par[2]),type='F')})
+    #   )
+    # })
     
-     for(kk in 1:nrow(X)){
-      Similarities=numeric(nrow(X))
-      if(!(kk %in% ind_points)){
-         Similarities[kk]=min(sapply(ind_points,function(k){
-        Kxy=cov_mat(X[k, ], X[kk, ], opt_par[1], opt_par[2])
-                    Kxx=cov_mat(X[k, ], X[k, ], opt_par[1], opt_par[2])
-                    Kyy=cov_mat(X[kk, ], X[kk, ], opt_par[1], opt_par[2])
-                    
-                    base::norm(
-                      -2 * Kxy/sqrt(base::norm(Kxx,type='F')*base::norm(Kyy,type='F')) +
-                        Kxx/base::norm(Kxx,type='F') +
-                        Kyy/base::norm(Kyy,type='F'),
-                      type = 'F'
-                    )
-      }))
-        if(Similarities[kk]>tau){
-        ind_points=c(ind_points,kk)
-        print(kk)
-        break
-        }
-      }
-      if(kk== nrow(X)){
-         print('No new points found')
-         quant=.9*quant
-         ind_points=c(ind_points,which.max(Similarities))
-      }      
+    similarity=foreach(j=(1:nrow(X))[-ind_points],.combine='c')%dopar% {
+      x=X[j,]
+      min(
+        sapply(1:length(ind_points),
+               function(k){
+                 base::norm(-2*cov_mat(X[k],x,opt_par[1],opt_par[2])+
+                              cov_mat(X[k],X[k],opt_par[1],opt_par[2])+
+                              cov_mat(x,x,opt_par[1],opt_par[2]),type='F')}
+        ))
     }
+    
+    Similarity[-ind_points]=similarity
+    ind_new=which.max(Similarity)
+    ind_points=c(ind_points,ind_new)
     
     opt_par=Adam(function(x) {
       log_likelihood_standard(
@@ -750,86 +709,37 @@ for( i in 1:n_ind){
       grad_standard(X[ind_points,], Y[ind_points,], x[1], x[2])
     },opt_par,lr=lr,max_iter = max_iter)
     
-    cat('Opt par: ', opt_par,'\n')
-    distances = outer(ind_points, ind_points,
-                  FUN = Vectorize(function(x, y) {
-                    Kxy=cov_mat(X[x, ], X[y, ], opt_par[1], opt_par[2])
-                    Kxx=cov_mat(X[x, ], X[x, ], opt_par[1], opt_par[2])
-                    Kyy=cov_mat(X[y, ], X[y, ], opt_par[1], opt_par[2])
-                    
-                    base::norm(
-                      -2 * Kxy/sqrt(base::norm(Kxx,type='F')*base::norm(Kyy,type='F')) +
-                        Kxx/base::norm(Kxx,type='F') +
-                        Kyy/base::norm(Kyy,type='F'),
-                      type = 'F'
-                    )
-                  }))
-    tau=quantile(distances,quant)
-
-    cat('Tau : ', tau,'\n')
-
-                          
-  }
-         
-  while(length(ind_points_fund)<=n_ind_points[i]){
     
-    for(kk in 1:nrow(X)){
-      Similarities=numeric(nrow(X))
-      if(!(kk %in% ind_points_fund)){
-         Similarities[kk]=min(sapply(ind_points_fund,function(k){
-        Kxy=fund_cov_mat(X[k, ], X[kk, ], opt_par_fund[1], opt_par_fund[2])
-                    Kxx=fund_cov_mat(X[k, ], X[k, ], opt_par_fund[1], opt_par_fund[2])
-                    Kyy=fund_cov_mat(X[kk, ], X[kk, ], opt_par_fund[1], opt_par_fund[2])
-                    
-                    base::norm(
-                      -2 * Kxy/sqrt(base::norm(Kxx,type='F')*base::norm(Kyy,type='F')) +
-                        Kxx/base::norm(Kxx,type='F') +
-                        Kyy/base::norm(Kyy,type='F'),
-                      type = 'F'
-                    )
-      }))
-        if(Similarities[kk]>tau_fund){
-        ind_points_fund=c(ind_points_fund,kk)
-        print(kk)
-        break
-        }
-      }
-      if(kk== nrow(X)){
-         print('No new points found')
-         quant_fund=.9*quant_fund
-         ind_points_fund=c(ind_points_fund,which.max(Similarities))
-      }      
+  }
+  
+  while(length(ind_points_fund)<n_ind_points[i]){
+    Similarity=numeric(nrow(X))       
+    
+    similarity=foreach(j=(1:nrow(X))[-ind_points_fund],.combine='c')%dopar% {
+      x=X[j,]
+      min(
+        sapply(1:length(ind_points),
+               function(k){
+                 base::norm(-2*fund_cov_mat(X[k],x,opt_par_fund[1],opt_par_fund[2])+
+                              fund_cov_mat(X[k],X[k],opt_par_fund[1],opt_par_fund[2])+
+                              fund_cov_mat(x,x,opt_par_fund[1],opt_par_fund[2]),type='F')}
+        ))
     }
+    
+    Similarity[-ind_points_fund]=similarity
+    ind_new=which.max(Similarity)
+    ind_points_fund=c(ind_points_fund,ind_new)
     
     opt_par_fund=Adam(function(x) {
       log_likelihood_fund(
-        X[ind_points_fund,], Y[ind_point_funds,], x[1], x[2])
+        X[ind_points,], Y[ind_points,], x[1], x[2])
     },function(x) {
-      grad_fund(X[ind_points_fund,], Y[ind_points_fund,], x[1], x[2])
+      grad_fund(X[ind_points,], Y[ind_points,], x[1], x[2])
     },opt_par_fund,lr=lr,max_iter = max_iter)
     
-    cat('Opt par fund: ', opt_par_fund,'\n')
-
-    distances = outer(ind_points_fund, ind_points_fund,
-                  FUN = Vectorize(function(x, y) {
-                    Kxy=fund_cov_mat(X[x, ], X[y, ], opt_par_fund[1], opt_par_fund[2])
-                    Kxx=fund_cov_mat(X[x, ], X[x, ], opt_par_fund[1], opt_par_fund[2])
-                    Kyy=fund_cov_mat(X[y, ], X[y, ], opt_par_fund[1], opt_par_fund[2])
-                    
-                    base::norm(
-                      -2 * Kxy/sqrt(base::norm(Kxx,type='F')*base::norm(Kyy,type='F')) +
-                        Kxx/base::norm(Kxx,type='F') +
-                        Kyy/base::norm(Kyy,type='F'),
-                      type = 'F'
-                    )
-                  }))
-   tau_fund=quantile(distances,quant_fund)
-   cat('Tau fund: ', tau_fund,'\n')
-
+    
   }
-
-  cat('Ind points: ', ind_points,'\n')
-  cat('Ind points fund: ', ind_points_fund,'\n')
+  
   Xtr=X[ind_points,]
   #Xte=X[test_ind,]
   Ytr=Y[ind_points,]
@@ -918,4 +828,4 @@ for( i in 1:n_ind){
 }
 stopCluster(cl)
 res=list(RMSES,LogS)
-save(list = "res", file = paste0("Results/learning_curves_NMF_inducing_points_", id, ".rda"))
+save(list = "res", file = paste0("Results/learning_curves_NMF_inducing_points_test_", id, ".rda"))
