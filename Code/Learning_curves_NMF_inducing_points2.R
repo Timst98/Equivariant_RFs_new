@@ -626,7 +626,7 @@ RMSES=LogS=matrix(nrow=n_ind,ncol=2)
 colnames(RMSES)<-c("standard","fundamental")
 colnames(LogS)<-c("standard","fundamental")
 
-print('Number of parallel workers: \n')
+cat('Number of parallel workers: \n')
 future::nbrOfWorkers()
 
 ind_points_fund=ind_points=sample(data_set_size,10)
