@@ -844,9 +844,8 @@ for( i in 1:n_ind){
   Trace=function(Mat){sum(diag(Mat))}
   
   while(length(ind_points)<=n_ind_points[i]){
-    
+    Similarities=numeric(nrow(X))
     for(kk in 1:nrow(X)){
-      Similarities=numeric(nrow(X))
       if(!(kk %in% ind_points)){
         Similarities[kk]=min(sapply(ind_points,function(k){
           Kxy=cov_mat(X[k, ], X[kk, ], opt_par[1], opt_par[2])
@@ -902,9 +901,8 @@ for( i in 1:n_ind){
   }
   
   while(length(ind_points_fund)<=n_ind_points[i]){
-    
+    Similarities=numeric(nrow(X))
     for(kk in 1:nrow(X)){
-      Similarities=numeric(nrow(X))
       if(!(kk %in% ind_points_fund)){
         Similarities[kk]=min(sapply(ind_points_fund,function(k){
           Kxy=fund_cov_mat(X[k, ], X[kk, ], opt_par_fund[1], opt_par_fund[2])
