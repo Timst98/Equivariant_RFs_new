@@ -4,8 +4,10 @@ library(cubature)
 library(doParallel)
 library(foreach)
 library(progress)
+library(future.apply)
+plan(multicore, workers = parallel::detectCores() - 1)
 #notcluster=is.na(id)
-num_cores=120
+
 notcluster=1
 quant=quant_fund=.9
 
@@ -108,128 +110,104 @@ Y=t(sapply(1:nrow(rots),function(x){
 ####################################################################
 
 
-
-fund_cov_mat=function(x1,x2,l,sigma){
-  norm=function(x){sum(x^2)^.5}
-  X1=x1-rep(x1[1:3],9);X2=x2-rep(x2[1:3],9)
+fund_cov_mat=function(x1, x2, l, sigma) {
+  norm=function(x) sqrt(sum(x^2))
   
-  x_H_bar_1=X1[4:6];x_H_bar_2=X1[7:9]
-  r1=norm(x_H_bar_1)
+  transform_point=function(x) {
+    X=x - rep(x[1:3], 9)
+    x_H1=X[4:6]
+    x_H2=X[7:9]
+    r=norm(x_H1)
+    
+    theta=atan2(x_H1[1], x_H1[2])
+    x_H_tilde1=c(0, sin(theta)*x_H1[1] + cos(theta)*x_H1[2], x_H1[3])
+    phi1=-atan2(x_H_tilde1[3], x_H_tilde1[2])
+    
+    psi1=matrix(c(cos(theta), -sin(theta), 0,
+                     sin(theta),  cos(theta), 0,
+                     0, 0, 1), nrow = 3, byrow = TRUE)
+    
+    psi2=matrix(c(1, 0, 0,
+                     0, cos(phi1), -sin(phi1),
+                     0, sin(phi1),  cos(phi1)), nrow = 3, byrow = TRUE)
+    
+    x_H_tilde2=psi2 %*% psi1 %*% x_H2
+    phi2=-atan2(x_H_tilde2[3], x_H_tilde2[1])
+    
+    psi3=matrix(c(cos(phi2), 0, -sin(phi2),
+                     0, 1, 0,
+                     sin(phi2), 0, cos(phi2)), nrow = 3, byrow = TRUE)
+    
+    rho=psi3 %*% psi2 %*% psi1
+    X_remain=X[-(1:9)]
+    
+    A=numeric(3 + 3 * 6)
+    A[1]=r
+    x_H_rot=psi3 %*% x_H_tilde2
+    A[2:3]=x_H_rot[1:2]
+    
+    for (i in 1:6) {
+      idx=(3 * (i - 1) + 1):(3 * i)
+      A[3 + (3 * (i - 1) + 1):(3 * i)]=rho %*% X_remain[idx]
+    }
+    
+    list(A = A, rho = rho)
+  }
   
-  theta1=atan2(x_H_bar_1[1],x_H_bar_1[2])
+  out1=transform_point(x1)
+  out2=transform_point(x2)
   
-  x_H_tilde_1=c(0,sin(theta1)*x_H_bar_1[1]+cos(theta1)*x_H_bar_1[2],x_H_bar_1[3])
-  phi1=-atan2(x_H_tilde_1[3],x_H_tilde_1[2])
-  
-  psi_1=matrix(c(cos(theta1),-sin(theta1),0,sin(theta1),cos(theta1),0,0,0,1),
-               nrow=3,byrow = 1)
-  psi_2=matrix(c(1,0,0,0,cos(phi1),-sin(phi1),0,sin(phi1),cos(phi1)),
-               nrow=3,byrow = 1)
-  
-  x_H_tilde_2=psi_2%*%psi_1%*%x_H_bar_2
-  
-  phi2=-atan2(x_H_tilde_2[3],x_H_tilde_2[1])
-  psi_3=matrix(c(cos(phi2),0,-sin(phi2),0,1,0,sin(phi2),0,cos(phi2)),
-               nrow=3,byrow = 1)
-  X1=X1[-(1:9)]
-  rho=psi_3%*%psi_2%*%psi_1
-  
-  A1=c(r1,(psi_3%*%x_H_tilde_2)[1],(psi_3%*%x_H_tilde_2)[2],
-       foreach(i=1:6,.combine='c')%dopar%{rho%*%(X1[(3*(i-1)+1):(3*i)])})
-  
-  
-  x_H2_bar_1=X2[4:6];x_H2_bar_2=X2[7:9]
-  r1_2=norm(x_H2_bar_1)
-  
-  theta1=atan2(x_H2_bar_1[1],x_H2_bar_1[2])
-  
-  x_H2_tilde_1=c(0,sin(theta1)*x_H2_bar_1[1]+cos(theta1)*x_H2_bar_1[2],x_H2_bar_1[3])
-  phi1=-atan2(x_H2_tilde_1[3],x_H2_tilde_1[2])
-  
-  psi_1_2=matrix(c(cos(theta1),-sin(theta1),0,sin(theta1),cos(theta1),0,0,0,1),
-                 nrow=3,byrow = 1)
-  psi_2_2=matrix(c(1,0,0,0,cos(phi1),-sin(phi1),0,sin(phi1),cos(phi1)),
-                 nrow=3,byrow = 1)
-  
-  x_H2_tilde_2=psi_2_2%*%psi_1_2%*%x_H2_bar_2
-  
-  phi2=-atan2(x_H2_tilde_2[3],x_H2_tilde_2[1])
-  psi_3_2=matrix(c(cos(phi2),0,-sin(phi2),0,1,0,sin(phi2),0,cos(phi2)),
-                 nrow=3,byrow = 1)
-  X2=X2[-(1:9)]
-  rho2=psi_3_2%*%psi_2_2%*%psi_1_2
-  
-  A2=c(r1_2,(psi_3_2%*%x_H2_tilde_2)[1],(psi_3_2%*%x_H2_tilde_2)[2],
-       foreach(i=1:6,.combine='c')%dopar%{rho2%*%(X2[(3*(i-1)+1):(3*i)])})
-  
-  #A2=c(r1_2,(psi_3_2%*%x_H2_tilde_2)[1],(psi_3_2%*%x_H2_tilde_2)[2])
-  
-  sigma^2*exp(-(norm(A1-A2))^2/(2*l^2))*t(rho)%*%rho2
-  
-  
+  diff=out1$A - out2$A
+  K_scalar=sigma^2 * exp(-sum(diff^2) / (2 * l^2))
+  return(K_scalar * t(out1$rho) %*% out2$rho)
 }
 
-cross_fund_cov_mat=function(x1,x2,l,sigma){
-  norm=function(x){sum(x^2)^.5}
-  cov= matrix(0, ncol =3 * ifelse(length(as.matrix(x2)) == 27, 1,nrow(x2)),
-              nrow = 3 * ifelse(length(as.matrix(x1)) == 27, 
-                                1, nrow(x1)))
+
+
+cross_fund_cov_mat=function(x1, x2, l, sigma) {
+  norm=function(x) sqrt(sum(x^2))
   
-  # Determine the loop limits
-  n1 <- length(as.matrix(x1)) / 27
-  n2 <- length(as.matrix(x2)) / 27
+  n1=nrow(x1)
+  n2=nrow(x2)
   
-  # Initialize the covariance matrix
-  cov <- matrix(0, nrow = 3 * max(n1, 1), ncol = 3 * max(n2, 1))
+  cov=matrix(0, nrow = 3 * n1, ncol = 3 * n2)
   
-  # Parallel execution using foreach
-  results <- foreach(i = 1:n1, .combine = 'c', .packages = Packages,.export = Export) %:%
-    foreach(j = 1:n2, .combine = 'c') %dopar% {
+  blocks=future_lapply(1:n1, function(i) {
+    lapply(1:n2, function(j) {
+      fund_cov_mat(x1[i, ], x2[j, ], l, sigma)
+    })
+  })
+  
+ 
+  for (i in 1:n1) {
+    for (j in 1:n2) {
+      cov1=blocks[[i]][[j]]  # 3x3 matrix
       
-      # Compute the covariance matrix entry
-      if (length(as.matrix(x2)) == 27) {
-        if (length(as.matrix(x1)) == 27) {
-          cov1 <- fund_cov_mat(x1, x2, l, sigma)
-        } else {
-          cov1 <- fund_cov_mat(x1[i, ], x2, l, sigma)
-        }
-      } else if (length(as.matrix(x1)) == 27) {
-        cov1 <- fund_cov_mat(x1, x2[j, ], l, sigma)
-      } else {
-        cov1 <- fund_cov_mat(x1[i, ], x2[j, ], l, sigma)
-      }
+      row_idx1=i
+      row_idx2=n1 + i
+      row_idx3=2 * n1 + i
       
-      # Define indices
-      row_idx1 <- ifelse(length(as.matrix(x1)) == 27, 1, nrow(x1)) + i
-      row_idx2 <- 2 * ifelse(length(as.matrix(x1)) == 27, 1, nrow(x1)) + i
-      col_idx1 <- ifelse(length(as.matrix(x2)) == 27, 1, nrow(x2)) + j
-      col_idx2 <- 2 * ifelse(length(as.matrix(x2)) == 27, 1, nrow(x2)) + j
+      col_idx1=j
+      col_idx2=n2 + j
+      col_idx3=2 * n2 + j
       
-      # Store results in a list for later merging
-      list(
-        list(i, j, cov1[1, 1], row_idx1, col_idx1, cov1[2, 2], row_idx2, col_idx2, cov1[3, 3],
-             cov1[2, 1], cov1[3, 1], cov1[1, 2], cov1[1, 3], cov1[3, 2], cov1[2, 3])
-      )
+      # Assign diagonal elements
+      cov[row_idx1, col_idx1]=cov1[1, 1]
+      cov[row_idx2, col_idx2]=cov1[2, 2]
+      cov[row_idx3, col_idx3]=cov1[3, 3]
+      
+      # Assign off-diagonal elements (following original indexing)
+      cov[row_idx2, col_idx1]=cov1[2, 1]
+      cov[row_idx3, col_idx1]=cov1[3, 1]
+      
+      cov[row_idx1, col_idx2]=cov1[1, 2]
+      cov[row_idx1, col_idx3]=cov1[1, 3]
+      
+      cov[row_idx3, col_idx2]=cov1[3, 2]
+      cov[row_idx2, col_idx3]=cov1[2, 3]
     }
-  
-  # Combine results into the covariance matrix
-  for (res in results) {
-    i <- res[[1]]
-    j <- res[[2]]
-    
-    cov[i, j] <- res[[3]]
-    cov[res[[4]], res[[5]]] <- res[[6]]
-    cov[res[[7]], res[[8]]] <- res[[9]]
-    
-    cov[res[[4]], j] <- res[[10]]
-    cov[res[[7]], j] <- res[[11]]
-    
-    cov[i, res[[5]]] <- res[[12]]
-    cov[i, res[[8]]] <- res[[13]]
-    
-    cov[res[[7]], res[[5]]] <- res[[14]]
-    cov[res[[4]], res[[8]]] <- res[[15]]
   }
+  
   return(cov)
 }
 
@@ -648,10 +626,8 @@ RMSES=LogS=matrix(nrow=n_ind,ncol=2)
 colnames(RMSES)<-c("standard","fundamental")
 colnames(LogS)<-c("standard","fundamental")
 
-
-
-cl=makeCluster(num_cores)
-registerDoParallel(cl)
+cat('Number of parallel workers: \n')
+future::nbrOfWorkers()
 
 ind_points_fund=ind_points=sample(data_set_size,10)
 
