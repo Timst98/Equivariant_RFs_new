@@ -11,9 +11,6 @@ plan(multicore, workers = parallel::detectCores() - 1)
 notcluster=1
 quant=quant_fund=.9
 
-Packages=c('doParallel','foreach')
-Export=c("Packages","cov_mat","cross_cov_mat","grad_standard","fund_cov_mat",
-         "cross_fund_cov_mat","grad_fund","Xtr","Ytr","cross_fund_cov_mat","jit","inv")
 Xtr=Ytr=c()
 data_set_size=10000
 test_set_size=1000
@@ -124,19 +121,19 @@ fund_cov_mat=function(x1, x2, l, sigma) {
     phi1=-atan2(x_H_tilde1[3], x_H_tilde1[2])
     
     psi1=matrix(c(cos(theta), -sin(theta), 0,
-                     sin(theta),  cos(theta), 0,
-                     0, 0, 1), nrow = 3, byrow = TRUE)
+                  sin(theta),  cos(theta), 0,
+                  0, 0, 1), nrow = 3, byrow = TRUE)
     
     psi2=matrix(c(1, 0, 0,
-                     0, cos(phi1), -sin(phi1),
-                     0, sin(phi1),  cos(phi1)), nrow = 3, byrow = TRUE)
+                  0, cos(phi1), -sin(phi1),
+                  0, sin(phi1),  cos(phi1)), nrow = 3, byrow = TRUE)
     
     x_H_tilde2=psi2 %*% psi1 %*% x_H2
     phi2=-atan2(x_H_tilde2[3], x_H_tilde2[1])
     
     psi3=matrix(c(cos(phi2), 0, -sin(phi2),
-                     0, 1, 0,
-                     sin(phi2), 0, cos(phi2)), nrow = 3, byrow = TRUE)
+                  0, 1, 0,
+                  sin(phi2), 0, cos(phi2)), nrow = 3, byrow = TRUE)
     
     rho=psi3 %*% psi2 %*% psi1
     X_remain=X[-(1:9)]
@@ -162,23 +159,149 @@ fund_cov_mat=function(x1, x2, l, sigma) {
   return(K_scalar * t(out1$rho) %*% out2$rho)
 }
 
+del_l_fund_cov_mat=function(x1, x2, l, sigma) {
+  norm=function(x) sqrt(sum(x^2))
+  
+  transform_point=function(x) {
+    X=x - rep(x[1:3], 9)
+    x_H1=X[4:6]
+    x_H2=X[7:9]
+    r=norm(x_H1)
+    
+    theta=atan2(x_H1[1], x_H1[2])
+    x_H_tilde1=c(0, sin(theta)*x_H1[1] + cos(theta)*x_H1[2], x_H1[3])
+    phi1=-atan2(x_H_tilde1[3], x_H_tilde1[2])
+    
+    psi1=matrix(c(cos(theta), -sin(theta), 0,
+                  sin(theta),  cos(theta), 0,
+                  0, 0, 1), nrow = 3, byrow = TRUE)
+    
+    psi2=matrix(c(1, 0, 0,
+                  0, cos(phi1), -sin(phi1),
+                  0, sin(phi1),  cos(phi1)), nrow = 3, byrow = TRUE)
+    
+    x_H_tilde2=psi2 %*% psi1 %*% x_H2
+    phi2=-atan2(x_H_tilde2[3], x_H_tilde2[1])
+    
+    psi3=matrix(c(cos(phi2), 0, -sin(phi2),
+                  0, 1, 0,
+                  sin(phi2), 0, cos(phi2)), nrow = 3, byrow = TRUE)
+    
+    rho=psi3 %*% psi2 %*% psi1
+    X_remain=X[-(1:9)]
+    
+    A=numeric(3 + 3 * 6)
+    A[1]=r
+    x_H_rot=psi3 %*% x_H_tilde2
+    A[2:3]=x_H_rot[1:2]
+    
+    for (i in 1:6) {
+      idx=(3 * (i - 1) + 1):(3 * i)
+      A[3 + (3 * (i - 1) + 1):(3 * i)]=rho %*% X_remain[idx]
+    }
+    
+    list(A = A, rho = rho)
+  }
+  
+  out1=transform_point(x1)
+  out2=transform_point(x2)
+  
+  diff=out1$A - out2$A
+  del_l_K_scalar=sigma^2 * exp(-sum(diff^2) / (2 * l^2))*sum(diff^2)/l^3
+  return(del_l_K_scalar * t(out1$rho) %*% out2$rho)
+}
 
+del_sigma_fund_cov_mat=function(x1, x2, l, sigma) {
+  norm=function(x) sqrt(sum(x^2))
+  
+  transform_point=function(x) {
+    X=x - rep(x[1:3], 9)
+    x_H1=X[4:6]
+    x_H2=X[7:9]
+    r=norm(x_H1)
+    
+    theta=atan2(x_H1[1], x_H1[2])
+    x_H_tilde1=c(0, sin(theta)*x_H1[1] + cos(theta)*x_H1[2], x_H1[3])
+    phi1=-atan2(x_H_tilde1[3], x_H_tilde1[2])
+    
+    psi1=matrix(c(cos(theta), -sin(theta), 0,
+                  sin(theta),  cos(theta), 0,
+                  0, 0, 1), nrow = 3, byrow = TRUE)
+    
+    psi2=matrix(c(1, 0, 0,
+                  0, cos(phi1), -sin(phi1),
+                  0, sin(phi1),  cos(phi1)), nrow = 3, byrow = TRUE)
+    
+    x_H_tilde2=psi2 %*% psi1 %*% x_H2
+    phi2=-atan2(x_H_tilde2[3], x_H_tilde2[1])
+    
+    psi3=matrix(c(cos(phi2), 0, -sin(phi2),
+                  0, 1, 0,
+                  sin(phi2), 0, cos(phi2)), nrow = 3, byrow = TRUE)
+    
+    rho=psi3 %*% psi2 %*% psi1
+    X_remain=X[-(1:9)]
+    
+    A=numeric(3 + 3 * 6)
+    A[1]=r
+    x_H_rot=psi3 %*% x_H_tilde2
+    A[2:3]=x_H_rot[1:2]
+    
+    for (i in 1:6) {
+      idx=(3 * (i - 1) + 1):(3 * i)
+      A[3 + (3 * (i - 1) + 1):(3 * i)]=rho %*% X_remain[idx]
+    }
+    
+    list(A = A, rho = rho)
+  }
+  
+  out1=transform_point(x1)
+  out2=transform_point(x2)
+  
+  diff=out1$A - out2$A
+  del_sigma_K_scalar=sigma*2 * exp(-sum(diff^2) / (2 * l^2))
+  return(del_sigma_K_scalar * t(out1$rho) %*% out2$rho)
+}
 
 cross_fund_cov_mat=function(x1, x2, l, sigma) {
   norm=function(x) sqrt(sum(x^2))
   
-  n1=nrow(x1)
-  n2=nrow(x2)
+  n1=ifelse(is.null(dim(x1)),1,nrow(x1))
+  n2=ifelse(is.null(dim(x2)),1,nrow(x2))
   
   cov=matrix(0, nrow = 3 * n1, ncol = 3 * n2)
+  if(n1==1){
+    if(n2==1){
+      blocks=future_lapply(1:n1, function(i) {
+        lapply(1:n2, function(j) {
+          fund_cov_mat(x1, x2, l, sigma)
+        })
+      })
+    }else{
+      blocks=future_lapply(1:n1, function(i) {
+        lapply(1:n2, function(j) {
+          fund_cov_mat(x1, x2[j,], l, sigma)
+        })
+      })
+    }
+  }else{
+    if(n2==1){
+      blocks=future_lapply(1:n1, function(i) {
+        lapply(1:n2, function(j) {
+          fund_cov_mat(x1[i,], x2, l, sigma)
+        })
+      })
+    }else{
+      blocks=future_lapply(1:n1, function(i) {
+        lapply(1:n2, function(j) {
+          fund_cov_mat(x1[i,], x2[j,], l, sigma)
+        })
+      })
+    }
+  }
   
-  blocks=future_lapply(1:n1, function(i) {
-    lapply(1:n2, function(j) {
-      fund_cov_mat(x1[i, ], x2[j, ], l, sigma)
-    })
-  })
   
- 
+  
   for (i in 1:n1) {
     for (j in 1:n2) {
       cov1=blocks[[i]][[j]]  # 3x3 matrix
@@ -211,6 +334,145 @@ cross_fund_cov_mat=function(x1, x2, l, sigma) {
   return(cov)
 }
 
+del_sigma_cross_fund_cov_mat=function(x1, x2, l, sigma) {
+  norm=function(x) sqrt(sum(x^2))
+  
+  n1=ifelse(is.null(dim(x1)),1,nrow(x1))
+  n2=ifelse(is.null(dim(x2)),1,nrow(x2))
+  
+  cov=matrix(0, nrow = 3 * n1, ncol = 3 * n2)
+ 
+  if(n1==1){
+    if(n2==1){
+      blocks=future_lapply(1:n1, function(i) {
+        lapply(1:n2, function(j) {
+          del_sigma_fund_cov_mat(x1, x2, l, sigma)
+        })
+      })
+    }else{
+      blocks=future_lapply(1:n1, function(i) {
+        lapply(1:n2, function(j) {
+          del_sigma_fund_cov_mat(x1, x2[j,], l, sigma)
+        })
+      })
+    }
+  }else{
+    if(n2==1){
+      blocks=future_lapply(1:n1, function(i) {
+        lapply(1:n2, function(j) {
+          del_sigma_fund_cov_mat(x1[i,], x2, l, sigma)
+        })
+      })
+    }else{
+      blocks=future_lapply(1:n1, function(i) {
+        lapply(1:n2, function(j) {
+          del_sigma_fund_cov_mat(x1[i,], x2[j,], l, sigma)
+        })
+      })
+    }
+  }
+  
+  for (i in 1:n1) {
+    for (j in 1:n2) {
+      cov1=blocks[[i]][[j]]  # 3x3 matrix
+      
+      row_idx1=i
+      row_idx2=n1 + i
+      row_idx3=2 * n1 + i
+      
+      col_idx1=j
+      col_idx2=n2 + j
+      col_idx3=2 * n2 + j
+      
+      # Assign diagonal elements
+      cov[row_idx1, col_idx1]=cov1[1, 1]
+      cov[row_idx2, col_idx2]=cov1[2, 2]
+      cov[row_idx3, col_idx3]=cov1[3, 3]
+      
+      # Assign off-diagonal elements (following original indexing)
+      cov[row_idx2, col_idx1]=cov1[2, 1]
+      cov[row_idx3, col_idx1]=cov1[3, 1]
+      
+      cov[row_idx1, col_idx2]=cov1[1, 2]
+      cov[row_idx1, col_idx3]=cov1[1, 3]
+      
+      cov[row_idx3, col_idx2]=cov1[3, 2]
+      cov[row_idx2, col_idx3]=cov1[2, 3]
+    }
+  }
+  
+  return(cov)
+}
+
+del_l_cross_fund_cov_mat=function(x1, x2, l, sigma) {
+  norm=function(x) sqrt(sum(x^2))
+  
+  n1=ifelse(is.null(dim(x1)),1,nrow(x1))
+  n2=ifelse(is.null(dim(x2)),1,nrow(x2))
+  
+  cov=matrix(0, nrow = 3 * n1, ncol = 3 * n2)
+  
+  if(n1==1){
+    if(n2==1){
+      blocks=future_lapply(1:n1, function(i) {
+        lapply(1:n2, function(j) {
+          del_l_fund_cov_mat(x1, x2, l, sigma)
+        })
+      })
+    }else{
+      blocks=future_lapply(1:n1, function(i) {
+        lapply(1:n2, function(j) {
+          del_l_fund_cov_mat(x1, x2[j,], l, sigma)
+        })
+      })
+    }
+  }else{
+    if(n2==1){
+      blocks=future_lapply(1:n1, function(i) {
+        lapply(1:n2, function(j) {
+          del_l_fund_cov_mat(x1[i,], x2, l, sigma)
+        })
+      })
+    }else{
+      blocks=future_lapply(1:n1, function(i) {
+        lapply(1:n2, function(j) {
+          del_l_fund_cov_mat(x1[i,], x2[j,], l, sigma)
+        })
+      })
+    }
+  }
+  
+  for (i in 1:n1) {
+    for (j in 1:n2) {
+      cov1=blocks[[i]][[j]]  # 3x3 matrix
+      
+      row_idx1=i
+      row_idx2=n1 + i
+      row_idx3=2 * n1 + i
+      
+      col_idx1=j
+      col_idx2=n2 + j
+      col_idx3=2 * n2 + j
+      
+      # Assign diagonal elements
+      cov[row_idx1, col_idx1]=cov1[1, 1]
+      cov[row_idx2, col_idx2]=cov1[2, 2]
+      cov[row_idx3, col_idx3]=cov1[3, 3]
+      
+      # Assign off-diagonal elements (following original indexing)
+      cov[row_idx2, col_idx1]=cov1[2, 1]
+      cov[row_idx3, col_idx1]=cov1[3, 1]
+      
+      cov[row_idx1, col_idx2]=cov1[1, 2]
+      cov[row_idx1, col_idx3]=cov1[1, 3]
+      
+      cov[row_idx3, col_idx2]=cov1[3, 2]
+      cov[row_idx2, col_idx3]=cov1[2, 3]
+    }
+  }
+  
+  return(cov)
+}
 
 log_likelihood_fund=function(ytr,xtr,l,sigma){
   if(length(ytr)>3){
@@ -355,130 +617,22 @@ cross_cov_mat=function(x1,x2,l,sigma){
 }
 
 
-
-
-
 grad_fund=function(xtr,ytr,l,sigma){
   Trace=function(x){sum(diag(x))}
-    x1=x2=xtr
+  x1=x2=xtr
   norm=function(x){sum(x^2)^.5}
   ntr=ifelse(is.null(dim(xtr)),1,nrow(xtr))
   
   K=cross_fund_cov_mat(xtr,xtr,l,sigma)+
     diag(jit,nrow=3*ntr)
   
-  K_l=K_sigma=
-    matrix(0, ncol =3 * ifelse(length(as.matrix(xtr)) == 27, 1, ntr),
-           nrow = 3 * ifelse(length(as.matrix(xtr)) == 27, 1, ntr))
   
   inv_K=inv(K)
   
   N1=N2=ifelse(length(as.matrix(xtr)) == 27, 1, ntr)
   
-  results <- foreach(idx = 1:(N1 * N2)) %dopar% {
-    i <- ((idx - 1) %% N1) + 1
-    j <- ((idx - 1) %/% N1) + 1
-    if(N1==1){
-      x1 <- xtr
-      x2 <- xtr
-    }else{
-      x1 <- xtr[i,]
-      x2 <- xtr[j,]
-    }
-    
-    X1 <- x1 - rep(x1[1:3], 9)
-    X2 <- x2 - rep(x2[1:3], 9)
-    
-    # === First rotation chain ===
-    x_H_bar_1 <- X1[4:6]; x_H_bar_2 <- X1[7:9]
-    r1 <- norm(x_H_bar_1)
-    theta1 <- atan2(x_H_bar_1[1], x_H_bar_1[2])
-    x_H_tilde_1 <- c(0, sin(theta1)*x_H_bar_1[1] + cos(theta1)*x_H_bar_1[2], x_H_bar_1[3])
-    phi1 <- -atan2(x_H_tilde_1[3], x_H_tilde_1[2])
-    
-    psi_1 <- matrix(c(cos(theta1), -sin(theta1), 0,
-                      sin(theta1), cos(theta1), 0,
-                      0, 0, 1), nrow=3, byrow=TRUE)
-    psi_2 <- matrix(c(1, 0, 0,
-                      0, cos(phi1), -sin(phi1),
-                      0, sin(phi1), cos(phi1)), nrow=3, byrow=TRUE)
-    
-    x_H_tilde_2 <- psi_2 %*% psi_1 %*% x_H_bar_2
-    phi2 <- -atan2(x_H_tilde_2[3], x_H_tilde_2[1])
-    psi_3 <- matrix(c(cos(phi2), 0, -sin(phi2),
-                      0, 1, 0,
-                      sin(phi2), 0, cos(phi2)), nrow=3, byrow=TRUE)
-    
-    X1 <- X1[-(1:9)]
-    rho <- psi_3 %*% psi_2 %*% psi_1
-    A1 <- c(r1, (psi_3 %*% x_H_tilde_2)[1], (psi_3 %*% x_H_tilde_2)[2],
-            unlist(lapply(1:6, function(k) rho %*% X1[(3*(k-1)+1):(3*k)])))
-    
-    # === Second rotation chain ===
-    x_H2_bar_1 <- X2[4:6]; x_H2_bar_2 <- X2[7:9]
-    r1_2 <- norm(x_H2_bar_1)
-    theta1 <- atan2(x_H2_bar_1[1], x_H2_bar_1[2])
-    x_H2_tilde_1 <- c(0, sin(theta1)*x_H2_bar_1[1] + cos(theta1)*x_H2_bar_1[2], x_H2_bar_1[3])
-    phi1 <- -atan2(x_H2_tilde_1[3], x_H2_tilde_1[2])
-    
-    psi_1_2 <- matrix(c(cos(theta1), -sin(theta1), 0,
-                        sin(theta1), cos(theta1), 0,
-                        0, 0, 1), nrow=3, byrow=TRUE)
-    psi_2_2 <- matrix(c(1, 0, 0,
-                        0, cos(phi1), -sin(phi1),
-                        0, sin(phi1), cos(phi1)), nrow=3, byrow=TRUE)
-    
-    x_H2_tilde_2 <- psi_2_2 %*% psi_1_2 %*% x_H2_bar_2
-    phi2 <- -atan2(x_H2_tilde_2[3], x_H2_tilde_2[1])
-    psi_3_2 <- matrix(c(cos(phi2), 0, -sin(phi2),
-                        0, 1, 0,
-                        sin(phi2), 0, cos(phi2)), nrow=3, byrow=TRUE)
-    
-    X2 <- X2[-(1:9)]
-    rho2 <- psi_3_2 %*% psi_2_2 %*% psi_1_2
-    A2 <- c(r1_2, (psi_3_2 %*% x_H2_tilde_2)[1], (psi_3_2 %*% x_H2_tilde_2)[2],
-            unlist(lapply(1:6, function(k) rho2 %*% X2[(3*(k-1)+1):(3*k)])))
-    
-    # === Covariances ===
-    cov1 <- sigma^2 * exp(-(norm(A1 - A2))^2 / (2 * l^2)) / (l^3) * (norm(A1 - A2))^2 * t(rho) %*% rho2
-    cov2 <- 2 * sigma * exp(-(norm(A1 - A2))^2 / (2 * l^2)) * t(rho) %*% rho2
-    
-    list(i = i, j = j, cov1 = cov1, cov2 = cov2)
-  }
-  
-  K_l <- matrix(0, 3*N1, 3*N2)
-  K_sigma <- matrix(0, 3*N1, 3*N2)
-  
-  for (res in results) {
-    i <- res$i
-    j <- res$j
-    cov1 <- res$cov1
-    cov2 <- res$cov2
-    
-    offset1 <- ifelse(N1 == 1, 0, N1)
-    offset2 <- ifelse(N2 == 1, 0, N2)
-    
-    K_l[i, j] <- cov1[1,1]
-    K_l[offset1 + i, offset2 + j] <- cov1[2,2]
-    K_l[2*offset1 + i, 2*offset2 + j] <- cov1[3,3]
-    K_l[offset1 + i, j] <- cov1[2,1]
-    K_l[2*offset1 + i, j] <- cov1[3,1]
-    K_l[i, offset2 + j] <- cov1[1,2]
-    K_l[i, 2*offset2 + j] <- cov1[1,3]
-    K_l[2*offset1 + i, offset2 + j] <- cov1[3,2]
-    K_l[offset1 + i, 2*offset2 + j] <- cov1[2,3]
-    
-    K_sigma[i, j] <- cov2[1,1]
-    K_sigma[offset1 + i, offset2 + j] <- cov2[2,2]
-    K_sigma[2*offset1 + i, 2*offset2 + j] <- cov2[3,3]
-    K_sigma[offset1 + i, j] <- cov2[2,1]
-    K_sigma[2*offset1 + i, j] <- cov2[3,1]
-    K_sigma[i, offset2 + j] <- cov2[1,2]
-    K_sigma[i, 2*offset2 + j] <- cov2[1,3]
-    K_sigma[2*offset1 + i, offset2 + j] <- cov2[3,2]
-    K_sigma[offset1 + i, 2*offset2 + j] <- cov2[2,3]
-  }
-  
+  K_sigma=del_sigma_cross_fund_cov_mat(x1,x2,l,sigma)
+  K_l=del_l_cross_fund_cov_mat(x1,x2,l,sigma)
   if(N1==1){
     grad=0.5*c(-t(c(ytr))%*%inv_K%*%K_l%*%inv_K%*%c(
       ytr)+Trace(inv_K%*%K_l),
@@ -521,7 +675,7 @@ grad_standard=function(xtr,ytr,l,sigma){
   
   for(i in 1:(length(as.matrix(x1))/27)){
     for (j in 1:(length(as.matrix(x2))/27)){
-   
+      
       if(!is.null(dim(x1))){
         x1=x1[i,]
       }
@@ -641,7 +795,7 @@ opt_par=Adam(function(x) {
 cat('Opt par: ', opt_par,'\n')
 
 
-                          
+
 distances = outer(ind_points, ind_points,
                   FUN = Vectorize(function(x, y) {
                     Kxy=cov_mat(X[x, ], X[y, ], opt_par[1], opt_par[2])
@@ -656,7 +810,7 @@ distances = outer(ind_points, ind_points,
                     )
                   }))
 tau=quantile(distances,quant)
-                          
+
 cat('Tau : ', tau,'\n')
 
 opt_par_fund=Adam(function(x) {
@@ -684,38 +838,38 @@ tau_fund=quantile(distances,quant_fund)
 cat('Opt par fund: ', opt_par_fund,'\n')
 
 cat('Tau fund: ', tau_fund,'\n')
-                         
+
 
 for( i in 1:n_ind){
   Trace=function(Mat){sum(diag(Mat))}
   
   while(length(ind_points)<=n_ind_points[i]){
     
-     for(kk in 1:nrow(X)){
+    for(kk in 1:nrow(X)){
       Similarities=numeric(nrow(X))
       if(!(kk %in% ind_points)){
-         Similarities[kk]=min(sapply(ind_points,function(k){
-        Kxy=cov_mat(X[k, ], X[kk, ], opt_par[1], opt_par[2])
-                    Kxx=cov_mat(X[k, ], X[k, ], opt_par[1], opt_par[2])
-                    Kyy=cov_mat(X[kk, ], X[kk, ], opt_par[1], opt_par[2])
-                    
-                    base::norm(
-                      -2 * Kxy/sqrt(base::norm(Kxx,type='F')*base::norm(Kyy,type='F')) +
-                        Kxx/base::norm(Kxx,type='F') +
-                        Kyy/base::norm(Kyy,type='F'),
-                      type = 'F'
-                    )
-      }))
+        Similarities[kk]=min(sapply(ind_points,function(k){
+          Kxy=cov_mat(X[k, ], X[kk, ], opt_par[1], opt_par[2])
+          Kxx=cov_mat(X[k, ], X[k, ], opt_par[1], opt_par[2])
+          Kyy=cov_mat(X[kk, ], X[kk, ], opt_par[1], opt_par[2])
+          
+          base::norm(
+            -2 * Kxy/sqrt(base::norm(Kxx,type='F')*base::norm(Kyy,type='F')) +
+              Kxx/base::norm(Kxx,type='F') +
+              Kyy/base::norm(Kyy,type='F'),
+            type = 'F'
+          )
+        }))
         if(Similarities[kk]>tau){
-        ind_points=c(ind_points,kk)
-        print(kk)
-        break
+          ind_points=c(ind_points,kk)
+          print(kk)
+          break
         }
       }
       if(kk== nrow(X)){
-         print('No new points found')
-         quant=.9*quant
-         ind_points=c(ind_points,which.max(Similarities))
+        print('No new points found')
+        quant=.9*quant
+        ind_points=c(ind_points,which.max(Similarities))
       }      
     }
     
@@ -728,52 +882,52 @@ for( i in 1:n_ind){
     
     cat('Opt par: ', opt_par,'\n')
     distances = outer(ind_points, ind_points,
-                  FUN = Vectorize(function(x, y) {
-                    Kxy=cov_mat(X[x, ], X[y, ], opt_par[1], opt_par[2])
-                    Kxx=cov_mat(X[x, ], X[x, ], opt_par[1], opt_par[2])
-                    Kyy=cov_mat(X[y, ], X[y, ], opt_par[1], opt_par[2])
-                    
-                    base::norm(
-                      -2 * Kxy/sqrt(base::norm(Kxx,type='F')*base::norm(Kyy,type='F')) +
-                        Kxx/base::norm(Kxx,type='F') +
-                        Kyy/base::norm(Kyy,type='F'),
-                      type = 'F'
-                    )
-                  }))
+                      FUN = Vectorize(function(x, y) {
+                        Kxy=cov_mat(X[x, ], X[y, ], opt_par[1], opt_par[2])
+                        Kxx=cov_mat(X[x, ], X[x, ], opt_par[1], opt_par[2])
+                        Kyy=cov_mat(X[y, ], X[y, ], opt_par[1], opt_par[2])
+                        
+                        base::norm(
+                          -2 * Kxy/sqrt(base::norm(Kxx,type='F')*base::norm(Kyy,type='F')) +
+                            Kxx/base::norm(Kxx,type='F') +
+                            Kyy/base::norm(Kyy,type='F'),
+                          type = 'F'
+                        )
+                      }))
     tau=quantile(distances,quant)
-
+    
     cat('Tau : ', tau,'\n')
-
-                          
+    
+    
   }
-         
+  
   while(length(ind_points_fund)<=n_ind_points[i]){
     
     for(kk in 1:nrow(X)){
       Similarities=numeric(nrow(X))
       if(!(kk %in% ind_points_fund)){
-         Similarities[kk]=min(sapply(ind_points_fund,function(k){
-        Kxy=fund_cov_mat(X[k, ], X[kk, ], opt_par_fund[1], opt_par_fund[2])
-                    Kxx=fund_cov_mat(X[k, ], X[k, ], opt_par_fund[1], opt_par_fund[2])
-                    Kyy=fund_cov_mat(X[kk, ], X[kk, ], opt_par_fund[1], opt_par_fund[2])
-                    
-                    base::norm(
-                      -2 * Kxy/sqrt(base::norm(Kxx,type='F')*base::norm(Kyy,type='F')) +
-                        Kxx/base::norm(Kxx,type='F') +
-                        Kyy/base::norm(Kyy,type='F'),
-                      type = 'F'
-                    )
-      }))
+        Similarities[kk]=min(sapply(ind_points_fund,function(k){
+          Kxy=fund_cov_mat(X[k, ], X[kk, ], opt_par_fund[1], opt_par_fund[2])
+          Kxx=fund_cov_mat(X[k, ], X[k, ], opt_par_fund[1], opt_par_fund[2])
+          Kyy=fund_cov_mat(X[kk, ], X[kk, ], opt_par_fund[1], opt_par_fund[2])
+          
+          base::norm(
+            -2 * Kxy/sqrt(base::norm(Kxx,type='F')*base::norm(Kyy,type='F')) +
+              Kxx/base::norm(Kxx,type='F') +
+              Kyy/base::norm(Kyy,type='F'),
+            type = 'F'
+          )
+        }))
         if(Similarities[kk]>tau_fund){
-        ind_points_fund=c(ind_points_fund,kk)
-        print(kk)
-        break
+          ind_points_fund=c(ind_points_fund,kk)
+          print(kk)
+          break
         }
       }
       if(kk== nrow(X)){
-         print('No new points found')
-         quant_fund=.9*quant_fund
-         ind_points_fund=c(ind_points_fund,which.max(Similarities))
+        print('No new points found')
+        quant_fund=.9*quant_fund
+        ind_points_fund=c(ind_points_fund,which.max(Similarities))
       }      
     }
     
@@ -785,25 +939,25 @@ for( i in 1:n_ind){
     },opt_par_fund,lr=lr,max_iter = max_iter)
     
     cat('Opt par fund: ', opt_par_fund,'\n')
-
+    
     distances = outer(ind_points_fund, ind_points_fund,
-                  FUN = Vectorize(function(x, y) {
-                    Kxy=fund_cov_mat(X[x, ], X[y, ], opt_par_fund[1], opt_par_fund[2])
-                    Kxx=fund_cov_mat(X[x, ], X[x, ], opt_par_fund[1], opt_par_fund[2])
-                    Kyy=fund_cov_mat(X[y, ], X[y, ], opt_par_fund[1], opt_par_fund[2])
-                    
-                    base::norm(
-                      -2 * Kxy/sqrt(base::norm(Kxx,type='F')*base::norm(Kyy,type='F')) +
-                        Kxx/base::norm(Kxx,type='F') +
-                        Kyy/base::norm(Kyy,type='F'),
-                      type = 'F'
-                    )
-                  }))
-   tau_fund=quantile(distances,quant_fund)
-   cat('Tau fund: ', tau_fund,'\n')
-
+                      FUN = Vectorize(function(x, y) {
+                        Kxy=fund_cov_mat(X[x, ], X[y, ], opt_par_fund[1], opt_par_fund[2])
+                        Kxx=fund_cov_mat(X[x, ], X[x, ], opt_par_fund[1], opt_par_fund[2])
+                        Kyy=fund_cov_mat(X[y, ], X[y, ], opt_par_fund[1], opt_par_fund[2])
+                        
+                        base::norm(
+                          -2 * Kxy/sqrt(base::norm(Kxx,type='F')*base::norm(Kyy,type='F')) +
+                            Kxx/base::norm(Kxx,type='F') +
+                            Kyy/base::norm(Kyy,type='F'),
+                          type = 'F'
+                        )
+                      }))
+    tau_fund=quantile(distances,quant_fund)
+    cat('Tau fund: ', tau_fund,'\n')
+    
   }
-
+  
   cat('Ind points: ', ind_points,'\n')
   cat('Ind points fund: ', ind_points_fund,'\n')
   Xtr=X[ind_points,]
