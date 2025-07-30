@@ -1044,6 +1044,6 @@ for( i in 1:n_ind){
   print(LogS_eq)
   
 }
-stopCluster(cl)
+
 res=list(RMSES,LogS)
 save(list = "res", file = paste0("Results/learning_curves_NMF_inducing_points_", id, ".rda"))
