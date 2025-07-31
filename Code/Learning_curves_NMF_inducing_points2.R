@@ -5,7 +5,8 @@ library(doParallel)
 library(foreach)
 library(progress)
 library(future.apply)
-plan(multicore, workers = parallel::detectCores() - 1)
+plan(multisession, workers = parallel::detectCores() - 5)
+
 #notcluster=is.na(id)
 
 notcluster=1
