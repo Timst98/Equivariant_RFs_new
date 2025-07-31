@@ -821,6 +821,8 @@ opt_par_fund=Adam(function(x) {
   grad_fund(X[ind_points_fund,], Y[ind_points_fund,], x[1], x[2])
 },rep(1,2),lr=lr,max_iter = max_iter)
 
+cat('Opt par fund: ', opt_par_fund,'\n')
+
 distances = outer(ind_points_fund, ind_points_fund,
                   FUN = Vectorize(function(x, y) {
                     Kxy=fund_cov_mat(X[x, ], X[y, ], opt_par_fund[1], opt_par_fund[2])
@@ -834,9 +836,8 @@ distances = outer(ind_points_fund, ind_points_fund,
                       type = 'F'
                     )
                   }))
-tau_fund=quantile(distances,quant_fund)
 
-cat('Opt par fund: ', opt_par_fund,'\n')
+tau_fund=quantile(distances,quant_fund)
 
 cat('Tau fund: ', tau_fund,'\n')
 
