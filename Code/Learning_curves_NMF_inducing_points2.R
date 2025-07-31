@@ -5,7 +5,7 @@ library(doParallel)
 library(foreach)
 library(progress)
 library(future.apply)
-plan(multisession, workers = 50)
+plan(multicore, workers = 50)
 
 #notcluster=is.na(id)
 
