@@ -105,6 +105,32 @@ Y=t(sapply(1:nrow(rots),function(x){
 }))
 
 
+rots=matrix(rnorm(nrow(Yte)*3,0,2*pi),ncol=3)
+Xte=t(sapply(1:nrow(rots),function(x){
+  
+  theta1=rots[x,1];phi1=rots[x,2];phi2=rots[x,3]
+  psi_1=matrix(c(cos(theta1),-sin(theta1),0,sin(theta1),cos(theta1),0,0,0,1),
+               nrow=3,byrow = 1)
+  psi_2=matrix(c(1,0,0,0,cos(phi1),-sin(phi1),0,sin(phi1),cos(phi1)),
+               nrow=3,byrow = 1)
+  psi_3=matrix(c(cos(phi2),0,-sin(phi2),0,1,0,sin(phi2),0,cos(phi2)),
+               nrow=3,byrow = 1)
+  as.numeric(psi_3%*%psi_2%*%psi_1%*%matrix(Xte[x,],ncol=9))
+}))
+
+
+Yte=t(sapply(1:nrow(rots),function(x){
+  theta1=rots[x,1];phi1=rots[x,2];phi2=rots[x,3]
+  psi_1=matrix(c(cos(theta1),-sin(theta1),0,sin(theta1),cos(theta1),0,0,0,1),
+               nrow=3,byrow = 1)
+  psi_2=matrix(c(1,0,0,0,cos(phi1),-sin(phi1),0,sin(phi1),cos(phi1)),
+               nrow=3,byrow = 1)
+  psi_3=matrix(c(cos(phi2),0,-sin(phi2),0,1,0,sin(phi2),0,cos(phi2)),
+               nrow=3,byrow = 1)
+  as.numeric(psi_3%*%psi_2%*%psi_1%*%Yte[x,])
+}))
+
+
 ####################################################################
 
 
