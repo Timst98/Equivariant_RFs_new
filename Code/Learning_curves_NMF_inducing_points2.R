@@ -13,7 +13,7 @@ notcluster=1
 quant=quant_fund=.9
 
 Xtr=Ytr=c()
-data_set_size=1000
+data_set_size=10000
 test_set_size=1000
 
 
