@@ -832,106 +832,80 @@ ELBO_standard=function(ytr,xtr,xind,l,sigma,sigma_noise){
 }
 
 
-grad_elbo_standard=function(xtr,ytr,xind,l,sigma,sigma_noise){
-  Trace=function(x){sum(diag(x))}
-  x1=x2=xtr
-  n=ifelse(is.null(dim(xtr)),1,nrow(xtr))
-
-  m=ifelse(is.null(dim(xind)),1,nrow(xind))
-  Knn=cross_cov_mat(xtr,xtr,l,sigma)
-  Knm=cross_cov_mat(xtr,xind,l,sigma)
-  Kmn=cross_cov_mat(xind,xtr,l,sigma)
-  Kmm=cross_cov_mat(xind,xind,l,sigma)
-  Lmm=chol(Kmm)
-  Kmm_inv=chol2inv(Lmm)
-  Qnn=Knm%*%Kmm_inv%*%Kmn
-
-  A=Knm%*%Lmm_inv
-  Qnn_noise_inv=sigma_noise^(-2)*diag(rep(1,n))-
-                         sigma_noise^(-4)*A%*%
-                         solve(diag(rep(1,m))+sigma_noise^(-2)*t(A)%*%A)%*%t(A)
+grad_elbo_standard=function(xtr, ytr, xind, l, sigma, sigma_noise) {
+  Trace=function(x) sum(diag(x))
   
-  
-  Qnn_l=Knm_l%*%Kmm_inv%*%Kmn-Knm%*%Kmm_inv%*%Kmm_l%*%Kmm_inv%*%Kmn+Knm%*%Kmm_inv%*%Kmn_l
-  Qnn_sigma=Knm_sigma%*%Kmm_inv%*%Kmn-Knm%*%Kmm_inv%*%Kmm_sigma%*%Kmm_inv%*%Kmn+Knm%*%Kmm_inv%*%Kmn_sigma
-  
-
-  #derivative of solve(Qnn+diag(rep(sigma_noise^2,n)))
-  Qnn_noise_inv_l=-Qnn_noise_inv%*%(
-             Knm_l%*%Kmm_inv%*%Kmn-
-             Knm%*%Kmm_inv%*%Kmm_l%*%Kmm_inv%*%Kmn+
-             Knm%*%Kmm_inv%*%Kmn_l
-          )%*%Qnn_noise_inv
-          
-
-   Qnn_noise_inv_sigma=-Qnn_noise_inv%*%(
-             Knm_sigma%*%Kmm_inv%*%Kmn-
-             Knm%*%Kmm_inv%*%Kmm_sigma%*%Kmm_inv%*%Kmn+
-             Knm%*%Kmm_inv%*%Kmn_sigma
-          )%*%Qnn_noise_inv
-  
-  Qnn_noise_inv_sigma_noise=-Qnn_noise_inv%*%(
-            2*sigma_noise
-          )%*%Qnn_noise_inv
-
-
-  det_Qnn_noise_l=Trace(Qnn_noise_inv%*%Qnn_l)
-  det_Qnn_noise_sigma=Trace(Qnn_noise_inv%*%Qnn_sigma)
-  det_Qnn_noise_sigma_noise=Trace(Qnn_noise_inv%*%2*sigma_noise)
-
-  Knn_l=del_l_cross_cov_mat(xtr,xtr,l,sigma)
-  Knn_sigma=del_sigma_cross_cov_mat(xtr,xtr,l,sigma)
-
-  Knm_l=del_l_cross_cov_mat(xtr,xind,l,sigma)
-  Knm_sigma=del_sigma_cross_cov_mat(xtr,xind,l,sigma)
-
-  Kmn_l=t(Knm_l)
-  Kmn_sigma=t(Knm_sigma)
-    
-  Knm_l=del_l_cross_cov_mat(xind,xind,l,sigma)
-  Knm_sigma=del_sigma_cross_cov_mat(xind,xind,l,sigma)
-  
-  if(is.null(dim(ytr))){
-    grad=c(
-      t(ytr)%*%Qnn_noise_inv_l%*%ytr+
-      det_Qnn_noise_l-
-      (2*sigma_noise^2)^(-1)*Trace(
-      -Kmm_inv%*%Kmm_l%*%Kmm_inv%*%Kmn%*%Knm+Kmm_inv%*%(Kmn_l%*%Knm+Kmn%*%Kmn_l)),
-           
-      t(ytr)%*%Qnn_noise_inv_sigma%*%ytr+
-      det_Qnn_noise_sigma-
-      (2*sigma_noise^2)^(-1)*(2*n*sigma+Trace(
-      -Kmm_inv%*%Kmm_sigma%*%Kmm_inv%*%Kmn%*%Knm+Kmm_inv%*%(Kmn_sigma%*%Knm+Kmn%*%Kmn_sigma)),
-  
-      t(ytr)%*%Qnn_noise_inv_sigma_noise%*%ytr+
-      det_Qnn_noise_sigma_noise+
-       -(sigma_noise^(-3))*(n*sigma^2-sum(diag(Kmm_inv%*%Kmn%*%Knm)))
-    )
-  }else{
-    ytr=c(ytr[,1],ytr[,2],ytr[,3])
-    grad=c(
-      t(ytr)%*%Qnn_noise_inv_l%*%ytr+
-      det_Qnn_noise_l-
-      (2*sigma_noise^2)^(-1)*Trace(
-      -Kmm_inv%*%Kmm_l%*%Kmm_inv%*%Kmn%*%Knm+Kmm_inv%*%(Kmn_l%*%Knm+Kmn%*%Kmn_l)),
-           
-      t(ytr)%*%Qnn_noise_inv_sigma%*%ytr+
-      det_Qnn_noise_sigma-
-      (2*sigma_noise^2)^(-1)*(2*n*sigma+Trace(
-      -Kmm_inv%*%Kmm_sigma%*%Kmm_inv%*%Kmn%*%Knm+Kmm_inv%*%(Kmn_sigma%*%Knm+Kmn%*%Kmn_sigma)),
-  
-      t(ytr)%*%Qnn_noise_inv_sigma_noise%*%ytr+
-      det_Qnn_noise_sigma_noise+
-       -(sigma_noise^(-3))*(n*sigma^2-sum(diag(Kmm_inv%*%Kmn%*%Knm)))
-    )
+  if (is.matrix(ytr) && ncol(ytr) == 3) {
+    ytr=c(ytr[,1], ytr[,2], ytr[,3])
   }
   
+  n=ifelse(is.null(dim(xtr)), 1, nrow(xtr)) * 3
+  m=ifelse(is.null(dim(xind)), 1, nrow(xind)) * 3
+ 
+  Knm=cross_cov_mat(xtr, xind, l, sigma)
+  Kmn=t(Knm)
+  Kmm=cross_cov_mat(xind, xind, l, sigma)
   
-  return(grad)
+  Lmm=chol(Kmm)
+  Lmm_inv=backsolve(Lmm, diag(m)) 
+  Kmm_inv=Lmm_inv%*%t(Lmm_inv)
+  
+  Qnn=Knm%*%Kmm_inv%*%Kmn
+  A=Knm%*%Lmm_inv
+
+  Qnn_noise_inv=sigma_noise^(-2) * diag(n) -
+    sigma_noise^(-4) * A %*%
+    solve(diag(m) + sigma_noise^(-2) * t(A)%*%A) %*%
+    t(A)
+  
+  Kmm_l     =del_l_cross_cov_mat(xind, xind, l, sigma)
+  Kmm_sigma =del_sigma_cross_cov_mat(xind, xind, l, sigma)
+  Knm_l     =del_l_cross_cov_mat(xtr, xind, l, sigma)
+  Knm_sigma =del_sigma_cross_cov_mat(xtr, xind, l, sigma)
+  Kmn_l     =t(Knm_l)
+  Kmn_sigma =t(Knm_sigma)
+  
+  Qnn_l=Knm_l%*%Kmm_inv%*%Kmn -
+    Knm%*%Kmm_inv%*%Kmm_l%*%Kmm_inv%*%Kmn +
+    Knm%*%Kmm_inv%*%Kmn_l
+  
+  Qnn_sigma=Knm_sigma%*%Kmm_inv%*%Kmn -
+    Knm%*%Kmm_inv%*%Kmm_sigma%*%Kmm_inv%*%Kmn +
+    Knm%*%Kmm_inv%*%Kmn_sigma
+
+  Qnn_noise_inv_l=-Qnn_noise_inv%*%Qnn_l%*%Qnn_noise_inv
+  Qnn_noise_inv_sigma=-Qnn_noise_inv%*%Qnn_sigma%*%Qnn_noise_inv
+  Qnn_noise_inv_sigma_noise=-2 * sigma_noise * Qnn_noise_inv%*%Qnn_noise_inv
+  
+  tr_Qnn_l    =Trace(Qnn_l)
+  tr_Qnn_sigma=Trace(Qnn_sigma)
+  
+  tr_Qnn_noise_inv_Qnn_l    =Trace(Qnn_noise_inv%*%Qnn_l)
+  tr_Qnn_noise_inv_Qnn_sigma=Trace(Qnn_noise_inv%*%Qnn_sigma)
+  tr_Qnn_noise_inv_sigma_noise=Trace(2 * sigma_noise * Qnn_noise_inv)
+  
+  grad_l=0.5 * as.numeric(
+    t(ytr)%*%Qnn_noise_inv_l%*%ytr +
+      tr_Qnn_noise_inv_Qnn_l -
+      (1 / sigma_noise^2) * tr_Qnn_l
+  )
+  
+  grad_sigma=0.5 * as.numeric(
+    t(ytr)%*%Qnn_noise_inv_sigma%*%ytr +
+      Trace(Qnn_noise_inv%*%Qnn_sigma) -
+      (1 / sigma_noise^2) * Trace(Qnn_sigma)
+    - 2 * n * sigma / (sigma_noise^2)
+  )
   
   
-  
+  grad_sigma_noise=as.numeric(
+    sigma_noise * t(ytr)%*%Qnn_noise_inv%*%Qnn_noise_inv%*%ytr
+    - sigma_noise * Trace(Qnn_noise_inv)
+    + (1 / sigma_noise^3) * (n * sigma^2 - sum(diag(Qnn)))
+  )
+  return(c(grad_l, -grad_sigma, -grad_sigma_noise))
 }
+
 
 ELBO_fund=function(ytr,xtr,xind,l,sigma,noise_var){
   if(length(ytr)>3){
